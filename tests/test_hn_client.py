@@ -1,3 +1,6 @@
+import requests
+
+from src.hn_client import HNClient
 from src.hn_client import HNStory, parse_story
 
 
@@ -54,3 +57,25 @@ def test_parse_story_without_url_is_allowed() -> None:
     assert story is not None
     assert story.url is None
     assert story.discussion_url == "https://news.ycombinator.com/item?id=123"
+
+
+def test_fetch_top_stories_skips_failed_item_fetch() -> None:
+    class StubHNClient(HNClient):
+        def fetch_top_story_ids(self) -> list[int]:
+            return [1, 2, 3]
+
+        def fetch_item(self, item_id: int) -> dict:
+            if item_id == 1:
+                raise requests.RequestException("temporary item failure")
+
+            return {
+                "id": item_id,
+                "type": "story",
+                "title": f"Story {item_id}",
+                "score": 100,
+                "descendants": 10,
+            }
+
+    stories = StubHNClient().fetch_top_stories(limit=2, candidate_count=3)
+
+    assert [story.id for story in stories] == [2, 3]

@@ -19,13 +19,19 @@ class TelegramClient:
         if not text.strip():
             raise ValueError("Telegram message text must not be empty.")
 
-        response = requests.post(
-            f"https://api.telegram.org/bot{self.bot_token}/sendMessage",
-            json={
-                "chat_id": self.chat_id,
-                "text": text,
-                "disable_web_page_preview": True,
-            },
-            timeout=self.timeout_seconds,
-        )
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                f"https://api.telegram.org/bot{self.bot_token}/sendMessage",
+                json={
+                    "chat_id": self.chat_id,
+                    "text": text,
+                    "disable_web_page_preview": True,
+                },
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            status_code = exc.response.status_code if exc.response is not None else "unknown"
+            raise RuntimeError(
+                f"Telegram sendMessage request failed. status_code={status_code}"
+            ) from None

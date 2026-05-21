@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import sys
 from typing import Any
 from urllib.parse import urlparse
 
@@ -67,8 +68,15 @@ class HNClient:
         stories: list[HNStory] = []
 
         for item_id in story_ids[:candidate_count]:
-            item = self.fetch_item(item_id)
-            story = parse_story(item)
+            try:
+                item = self.fetch_item(item_id)
+                story = parse_story(item)
+            except (requests.RequestException, ValueError) as exc:
+                print(
+                    f"Skipping HN item after fetch/parse failure. item_id={item_id} error={exc}",
+                    file=sys.stderr,
+                )
+                continue
 
             if story is not None:
                 stories.append(story)
