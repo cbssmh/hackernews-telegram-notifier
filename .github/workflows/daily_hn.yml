@@ -32,4 +32,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SUMMARY_PROVIDER: ${{ vars.SUMMARY_PROVIDER }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          OPENAI_MAX_COMMENTS: ${{ vars.OPENAI_MAX_COMMENTS }}
+          OPENAI_TIMEOUT_SECONDS: ${{ vars.OPENAI_TIMEOUT_SECONDS }}
         run: python -m src.main

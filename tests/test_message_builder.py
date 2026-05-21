@@ -26,3 +26,21 @@ def test_build_daily_message_without_stories() -> None:
     message = build_daily_message([], target_date=date(2026, 5, 21))
 
     assert "수집 가능한 Hacker News 인기글이 없습니다" in message
+
+
+def test_build_daily_message_uses_injected_summary_provider() -> None:
+    story = HNStory(
+        id=123,
+        title="Example Story",
+        url="https://example.com/post",
+        score=100,
+        descendants=20,
+    )
+
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        summary_provider=lambda story: "Injected summary",
+    )
+
+    assert "요약: Injected summary" in message

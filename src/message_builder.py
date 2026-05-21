@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 
 from src.hn_client import HNStory
 from src.summarizer import build_rule_based_summary
 
 
-def build_daily_message(stories: list[HNStory], target_date: date | None = None) -> str:
+SummaryProvider = Callable[[HNStory], str]
+
+
+def build_daily_message(
+    stories: list[HNStory],
+    target_date: date | None = None,
+    summary_provider: SummaryProvider = build_rule_based_summary,
+) -> str:
     message_date = target_date or date.today()
 
     lines: list[str] = [
@@ -24,7 +32,7 @@ def build_daily_message(stories: list[HNStory], target_date: date | None = None)
         lines.extend(
             [
                 f"{index}. {story.title}",
-                f"요약: {build_rule_based_summary(story)}",
+                f"요약: {summary_provider(story)}",
                 f"점수: {story.score} | 댓글: {story.descendants}",
                 f"원문: {source_url}",
                 f"토론: {story.discussion_url}",

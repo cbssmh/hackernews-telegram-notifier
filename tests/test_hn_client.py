@@ -1,7 +1,7 @@
 import requests
 
 from src.hn_client import HNClient
-from src.hn_client import HNStory, parse_story
+from src.hn_client import HNStory, parse_comment_text, parse_story
 
 
 def test_parse_valid_story() -> None:
@@ -79,3 +79,45 @@ def test_fetch_top_stories_skips_failed_item_fetch() -> None:
     stories = StubHNClient().fetch_top_stories(limit=2, candidate_count=3)
 
     assert [story.id for story in stories] == [2, 3]
+
+
+def test_parse_comment_text_strips_hn_html() -> None:
+    item = {
+        "id": 456,
+        "type": "comment",
+        "text": "Useful point<p>Second line &amp; detail",
+    }
+
+    assert parse_comment_text(item) == "Useful point Second line & detail"
+
+
+def test_fetch_top_stories_can_include_top_comments() -> None:
+    class StubHNClient(HNClient):
+        def fetch_top_story_ids(self) -> list[int]:
+            return [1]
+
+        def fetch_item(self, item_id: int) -> dict:
+            if item_id == 1:
+                return {
+                    "id": 1,
+                    "type": "story",
+                    "title": "Story 1",
+                    "score": 100,
+                    "descendants": 2,
+                    "kids": [10, 11],
+                }
+
+            return {
+                "id": item_id,
+                "type": "comment",
+                "text": f"Comment {item_id}",
+            }
+
+    stories = StubHNClient().fetch_top_stories(
+        limit=1,
+        candidate_count=1,
+        include_comments=True,
+        comment_limit=2,
+    )
+
+    assert stories[0].top_comments == ("Comment 10", "Comment 11")
