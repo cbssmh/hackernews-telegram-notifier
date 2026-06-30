@@ -67,6 +67,7 @@ def test_openai_summary_provider_falls_back_without_leaking_secret(monkeypatch, 
     summary = provider(story)
     captured = capsys.readouterr()
 
-    assert "example.com 출처" in summary
+    assert "Example Story" in summary
+    assert "출처의 기술/스타트업 관련 글로 보입니다" not in summary
     assert "OpenAI summary failed" in captured.err
     assert api_key not in captured.err
