@@ -1,6 +1,6 @@
 # HN Daily Top 3 Telegram Notifier
 
-Fetches the top Hacker News stories, builds a short rule-based Korean summary, and sends the result to Telegram.
+Fetches the top Hacker News stories, builds a deterministic reading-decision message, and sends the result to Telegram.
 
 ## Setup
 
@@ -36,7 +36,8 @@ TELEGRAM_BOT_TOKEN="your-bot-token" TELEGRAM_CHAT_ID="your-chat-id" python -m sr
 
 - No database is used.
 - No Docker setup is required.
-- Summaries are rule-based by default.
+- Messages are deterministic and evidence-based by default.
+- Article preview extraction falls back gracefully when unavailable.
 
 ## Optional OpenAI Summaries
 

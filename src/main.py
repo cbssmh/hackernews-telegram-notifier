@@ -24,7 +24,7 @@ def main() -> None:
     stories = hn_client.fetch_top_stories(
         limit=3,
         include_comments=include_comments,
-        comment_limit=_get_int_env("OPENAI_MAX_COMMENTS", 3),
+        comment_limit=_get_int_env("HN_COMMENT_LIMIT", _get_int_env("OPENAI_MAX_COMMENTS", 3)),
     )
     message = build_daily_message(stories, summary_provider=summary_provider)
 
@@ -36,7 +36,7 @@ def main() -> None:
 def build_summary_provider() -> tuple[SummaryProvider, bool]:
     provider_name = os.getenv("SUMMARY_PROVIDER", "rule_based").strip().lower()
     if provider_name != "openai":
-        return build_rule_based_summary, False
+        return build_rule_based_summary, True
 
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
@@ -44,7 +44,7 @@ def build_summary_provider() -> tuple[SummaryProvider, bool]:
             "SUMMARY_PROVIDER=openai but OPENAI_API_KEY is missing; using rule-based summaries.",
             file=sys.stderr,
         )
-        return build_rule_based_summary, False
+        return build_rule_based_summary, True
 
     model = os.getenv("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL
     timeout_seconds = _get_int_env("OPENAI_TIMEOUT_SECONDS", 20)

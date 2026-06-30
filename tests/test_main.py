@@ -11,7 +11,7 @@ def test_build_summary_provider_defaults_to_rule_based(monkeypatch) -> None:
     provider, include_comments = main.build_summary_provider()
 
     assert provider is build_rule_based_summary
-    assert include_comments is False
+    assert include_comments is True
 
 
 def test_build_summary_provider_uses_openai_when_enabled(monkeypatch) -> None:
@@ -51,5 +51,5 @@ def test_build_summary_provider_falls_back_when_openai_key_missing(monkeypatch, 
     captured = capsys.readouterr()
 
     assert provider is build_rule_based_summary
-    assert include_comments is False
+    assert include_comments is True
     assert "OPENAI_API_KEY is missing" in captured.err

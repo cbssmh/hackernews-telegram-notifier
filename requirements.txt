@@ -1,2 +1,4 @@
 requests==2.32.3
 pytest==8.3.4
+trafilatura==2.0.0
+lxml_html_clean==0.4.5

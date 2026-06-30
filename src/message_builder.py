@@ -3,17 +3,26 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date
 
+from src.article_extractor import ArticleExtraction, extract_article
 from src.hn_client import HNStory
+from src.reading_decision import (
+    build_article_excerpt,
+    build_hn_insight,
+    calculate_reading_time_minutes,
+    classify_source_type,
+)
 from src.summarizer import build_rule_based_summary
 
 
 SummaryProvider = Callable[[HNStory], str]
+ArticleExtractor = Callable[[str], ArticleExtraction]
 
 
 def build_daily_message(
     stories: list[HNStory],
     target_date: date | None = None,
     summary_provider: SummaryProvider = build_rule_based_summary,
+    article_extractor: ArticleExtractor = extract_article,
 ) -> str:
     message_date = target_date or date.today()
 
@@ -26,20 +35,77 @@ def build_daily_message(
         lines.append("오늘 수집 가능한 Hacker News 인기글이 없습니다.")
         return "\n".join(lines)
 
-    for index, story in enumerate(stories, start=1):
-        source_url = story.url or story.discussion_url
+    for story in stories:
+        lines.extend(
+            build_story_lines(
+                story,
+                summary_provider=summary_provider,
+                article_extractor=article_extractor,
+            )
+        )
 
+    return "\n".join(lines).strip()
+
+
+def build_story_lines(
+    story: HNStory,
+    summary_provider: SummaryProvider = build_rule_based_summary,
+    article_extractor: ArticleExtractor = extract_article,
+) -> list[str]:
+    article = _extract_article(story.url, article_extractor)
+    title = article.title if article.success and article.title else story.title
+    article_url = story.url or story.discussion_url
+    domain = story.domain or "news.ycombinator.com"
+    preview = (
+        build_article_excerpt(article.text, fallback=summary_provider(story))
+        if article.success
+        else summary_provider(story)
+    )
+    reading_time = calculate_reading_time_minutes(article.word_count)
+    hn_insight = build_hn_insight(story.top_comments)
+
+    lines = [
+        f"📰 {title}",
+        "",
+        f"📂 {classify_source_type(story.url)}",
+        f"{domain} · ⏱ {reading_time} min",
+        f"⭐{story.score} · 💬{story.descendants}",
+        "",
+        "📖 Preview",
+        preview,
+        "",
+    ]
+
+    if hn_insight:
         lines.extend(
             [
-                f"{index}. {story.title}",
-                f"요약: {summary_provider(story)}",
-                f"점수: {story.score} | 댓글: {story.descendants}",
-                f"원문: {source_url}",
-                f"토론: {story.discussion_url}",
-                "",
-                "---",
+                "💬 HN Insight",
+                hn_insight,
                 "",
             ]
         )
 
-    return "\n".join(lines).strip()
+    lines.extend(
+        [
+            f"🔗 Read: {article_url}",
+            f"💬 Discuss: {story.discussion_url}",
+            "",
+            "---",
+            "",
+        ]
+    )
+
+    return lines
+
+
+def _extract_article(
+    url: str | None,
+    article_extractor: ArticleExtractor,
+) -> ArticleExtraction:
+    if not url:
+        return ArticleExtraction(success=False)
+
+    try:
+        return article_extractor(url)
+    except Exception as exc:
+        return ArticleExtraction(success=False, error=f"Article extraction failed: {exc}")

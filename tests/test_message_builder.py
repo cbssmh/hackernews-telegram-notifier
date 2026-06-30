@@ -1,34 +1,92 @@
 from datetime import date
 
+from src.article_extractor import ArticleExtraction
 from src.hn_client import HNStory
 from src.message_builder import build_daily_message
 
 
-def test_build_daily_message_contains_story_information() -> None:
+def test_build_daily_message_contains_reading_decision_sections() -> None:
     story = HNStory(
         id=123,
-        title="Example Story",
+        title="HN Title",
+        url="https://github.blog/engineering/example-post",
+        score=100,
+        descendants=20,
+        top_comments=(
+            "This adds useful engineering context about why the implementation matters.",
+        ),
+    )
+
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        article_extractor=lambda url: ArticleExtraction(
+            success=True,
+            title="Extracted Article Title",
+            text=(
+                "This is the first meaningful paragraph from the article. "
+                "It gives enough evidence for a fast reading decision without adding new claims."
+            ),
+            word_count=440,
+        ),
+    )
+
+    assert "HN Daily Top 3 — 2026-05-21" in message
+    assert "📰 Extracted Article Title" in message
+    assert "📂 Engineering Blog" in message
+    assert "github.blog · ⏱ 2 min" in message
+    assert "⭐100 · 💬20" in message
+    assert "📖 Preview" in message
+    assert "This is the first meaningful paragraph" in message
+    assert "💬 HN Insight" in message
+    assert "useful engineering context" in message
+    assert "🔗 Read: https://github.blog/engineering/example-post" in message
+    assert "💬 Discuss: https://news.ycombinator.com/item?id=123" in message
+
+
+def test_build_daily_message_falls_back_when_article_extraction_fails() -> None:
+    story = HNStory(
+        id=123,
+        title="Fallback Story",
         url="https://example.com/post",
         score=100,
         descendants=20,
     )
 
-    message = build_daily_message([story], target_date=date(2026, 5, 21))
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        summary_provider=lambda story: "Fallback preview",
+        article_extractor=lambda url: ArticleExtraction(success=False, error="blocked"),
+    )
 
-    assert "HN Daily Top 3 — 2026-05-21" in message
-    assert "Example Story" in message
-    assert "점수: 100 | 댓글: 20" in message
-    assert "https://example.com/post" in message
-    assert "https://news.ycombinator.com/item?id=123" in message
-
-
-def test_build_daily_message_without_stories() -> None:
-    message = build_daily_message([], target_date=date(2026, 5, 21))
-
-    assert "수집 가능한 Hacker News 인기글이 없습니다" in message
+    assert "📖 Preview\nFallback preview" in message
+    assert "⏱ 1 min" in message
 
 
-def test_build_daily_message_uses_injected_summary_provider() -> None:
+def test_build_daily_message_falls_back_when_article_extractor_raises() -> None:
+    story = HNStory(
+        id=123,
+        title="Fallback Story",
+        url="https://example.com/post",
+        score=100,
+        descendants=20,
+    )
+
+    def raising_extractor(url: str) -> ArticleExtraction:
+        raise RuntimeError("network blocked")
+
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        summary_provider=lambda story: "Fallback preview",
+        article_extractor=raising_extractor,
+    )
+
+    assert "📖 Preview\nFallback preview" in message
+
+
+def test_build_daily_message_omits_hn_insight_when_comments_are_missing() -> None:
     story = HNStory(
         id=123,
         title="Example Story",
@@ -40,7 +98,17 @@ def test_build_daily_message_uses_injected_summary_provider() -> None:
     message = build_daily_message(
         [story],
         target_date=date(2026, 5, 21),
-        summary_provider=lambda story: "Injected summary",
+        article_extractor=lambda url: ArticleExtraction(
+            success=True,
+            text="A meaningful article paragraph that can be used as preview text.",
+            word_count=220,
+        ),
     )
 
-    assert "요약: Injected summary" in message
+    assert "💬 HN Insight" not in message
+
+
+def test_build_daily_message_without_stories() -> None:
+    message = build_daily_message([], target_date=date(2026, 5, 21))
+
+    assert "수집 가능한 Hacker News 인기글이 없습니다" in message
