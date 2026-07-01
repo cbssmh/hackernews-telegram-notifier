@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date
 from html import escape
+import re
 from urllib.parse import urlparse
 
 from src.article_extractor import ArticleExtraction, extract_article
@@ -18,6 +19,10 @@ from src.summarizer import build_rule_based_summary
 
 SummaryProvider = Callable[[HNStory], str]
 ArticleExtractor = Callable[[str], ArticleExtraction]
+ACCESS_BLOCKED_PREVIEW_UNAVAILABLE = (
+    "본문 미리보기를 가져오지 못했습니다. 원문 사이트가 자동 접근을 차단했을 수 있습니다."
+)
+PREVIEW_UNAVAILABLE = "본문 미리보기를 가져오지 못했습니다."
 
 
 def build_daily_message(
@@ -59,9 +64,9 @@ def build_story_lines(
     article_url = story.url or story.discussion_url
     domain = story.domain or "news.ycombinator.com"
     preview = (
-        build_article_excerpt(article.text, fallback=summary_provider(story))
+        build_article_excerpt(article.text, fallback=PREVIEW_UNAVAILABLE)
         if article.success
-        else summary_provider(story)
+        else _build_preview_unavailable_message(article)
     )
     reading_time = calculate_reading_time_minutes(article.word_count)
     hn_insight = build_hn_insight(story.top_comments)
@@ -111,6 +116,17 @@ def _extract_article(
         return article_extractor(url)
     except Exception as exc:
         return ArticleExtraction(success=False, error=f"Article extraction failed: {exc}")
+
+
+def _build_preview_unavailable_message(article: ArticleExtraction) -> str:
+    if _is_access_blocked_error(article.error):
+        return ACCESS_BLOCKED_PREVIEW_UNAVAILABLE
+
+    return PREVIEW_UNAVAILABLE
+
+
+def _is_access_blocked_error(error: str) -> bool:
+    return bool(re.search(r"\b(?:401|403|429)\b", error))
 
 
 def _display_hostname(url: str) -> str:

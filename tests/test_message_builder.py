@@ -2,7 +2,11 @@ from datetime import date
 
 from src.article_extractor import ArticleExtraction
 from src.hn_client import HNStory
-from src.message_builder import build_daily_message
+from src.message_builder import (
+    ACCESS_BLOCKED_PREVIEW_UNAVAILABLE,
+    PREVIEW_UNAVAILABLE,
+    build_daily_message,
+)
 
 
 def test_build_daily_message_contains_reading_decision_sections() -> None:
@@ -50,7 +54,32 @@ def test_build_daily_message_contains_reading_decision_sections() -> None:
     )
 
 
-def test_build_daily_message_falls_back_when_article_extraction_fails() -> None:
+def test_build_daily_message_uses_access_blocked_preview_when_article_fetch_is_blocked() -> None:
+    for status_code in (401, 403, 429):
+        story = HNStory(
+            id=status_code,
+            title="Blocked Story",
+            url="https://example.com/post",
+            score=100,
+            descendants=20,
+        )
+
+        message = build_daily_message(
+            [story],
+            target_date=date(2026, 5, 21),
+            summary_provider=lambda story: "Fallback preview",
+            article_extractor=lambda url: ArticleExtraction(
+                success=False,
+                error=f"Fetch failed: {status_code} Client Error",
+            ),
+        )
+
+        assert f"📖 Preview\n{ACCESS_BLOCKED_PREVIEW_UNAVAILABLE}" in message
+        assert "Fallback preview" not in message
+        assert "⏱ 1 min" in message
+
+
+def test_build_daily_message_uses_generic_preview_when_article_extraction_fails() -> None:
     story = HNStory(
         id=123,
         title="Fallback Story",
@@ -66,11 +95,12 @@ def test_build_daily_message_falls_back_when_article_extraction_fails() -> None:
         article_extractor=lambda url: ArticleExtraction(success=False, error="blocked"),
     )
 
-    assert "📖 Preview\nFallback preview" in message
+    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert "Fallback preview" not in message
     assert "⏱ 1 min" in message
 
 
-def test_build_daily_message_falls_back_when_article_extractor_raises() -> None:
+def test_build_daily_message_uses_generic_preview_when_article_extractor_raises() -> None:
     story = HNStory(
         id=123,
         title="Fallback Story",
@@ -89,7 +119,51 @@ def test_build_daily_message_falls_back_when_article_extractor_raises() -> None:
         article_extractor=raising_extractor,
     )
 
-    assert "📖 Preview\nFallback preview" in message
+    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert "Fallback preview" not in message
+
+
+def test_build_daily_message_keeps_hn_insight_when_preview_fallback_is_used() -> None:
+    story = HNStory(
+        id=123,
+        title="Fallback Story",
+        url="https://example.com/post",
+        score=100,
+        descendants=20,
+        top_comments=(
+            "This comment still adds useful context about the story despite extraction failure.",
+        ),
+    )
+
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        article_extractor=lambda url: ArticleExtraction(success=False, error="blocked"),
+    )
+
+    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert "💬 HN Insight" in message
+    assert "useful context" in message
+
+
+def test_build_daily_message_does_not_use_old_rule_based_summary_as_preview_fallback() -> None:
+    story = HNStory(
+        id=123,
+        title="Generic Story",
+        url="https://example.com/post",
+        score=100,
+        descendants=20,
+    )
+
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        summary_provider=lambda story: "Generic Story라는 주제를 다루며, 제목에서 제기한 문제를 설명하는 글입니다.",
+        article_extractor=lambda url: ArticleExtraction(success=False, error="empty"),
+    )
+
+    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert "라는 주제를 다루며" not in message
 
 
 def test_build_daily_message_omits_hn_insight_when_comments_are_missing() -> None:
