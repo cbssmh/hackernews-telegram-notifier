@@ -33,3 +33,22 @@ def test_send_message_raises_sanitized_error(monkeypatch) -> None:
     assert "Telegram sendMessage request failed" in error_message
     assert bot_token not in error_message
     assert telegram_url not in error_message
+
+
+def test_send_message_uses_html_parse_mode(monkeypatch) -> None:
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_post(*args, **kwargs) -> FakeResponse:
+        captured["json"] = kwargs["json"]
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    client = TelegramClient(bot_token="secret-token", chat_id="123")
+    client.send_message('<a href="https://example.com/post">example.com</a>')
+
+    assert captured["json"]["parse_mode"] == "HTML"

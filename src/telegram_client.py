@@ -25,6 +25,7 @@ class TelegramClient:
                 json={
                     "chat_id": self.chat_id,
                     "text": text,
+                    "parse_mode": "HTML",
                     "disable_web_page_preview": True,
                 },
                 timeout=self.timeout_seconds,

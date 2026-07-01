@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date
+from html import escape
+from urllib.parse import urlparse
 
 from src.article_extractor import ArticleExtraction, extract_article
 from src.hn_client import HNStory
@@ -65,14 +67,14 @@ def build_story_lines(
     hn_insight = build_hn_insight(story.top_comments)
 
     lines = [
-        f"📰 {title}",
+        f"📰 {escape(title)}",
         "",
-        f"📂 {classify_source_type(story.url)}",
-        f"{domain} · ⏱ {reading_time} min",
+        f"📂 {escape(classify_source_type(story.url))}",
+        f"{escape(domain)} · ⏱ {reading_time} min",
         f"⭐{story.score} · 💬{story.descendants}",
         "",
         "📖 Preview",
-        preview,
+        escape(preview),
         "",
     ]
 
@@ -80,15 +82,15 @@ def build_story_lines(
         lines.extend(
             [
                 "💬 HN Insight",
-                hn_insight,
+                escape(hn_insight),
                 "",
             ]
         )
 
     lines.extend(
         [
-            f"🔗 Read: {article_url}",
-            f"💬 Discuss: {story.discussion_url}",
+            f"🔗 원문: {_build_html_link(article_url, _display_hostname(article_url))}",
+            f"💬 토론: {_build_html_link(story.discussion_url, 'HN Discussion')}",
             "",
             "---",
             "",
@@ -109,3 +111,19 @@ def _extract_article(
         return article_extractor(url)
     except Exception as exc:
         return ArticleExtraction(success=False, error=f"Article extraction failed: {exc}")
+
+
+def _display_hostname(url: str) -> str:
+    try:
+        hostname = urlparse(url).hostname
+    except ValueError:
+        return url
+
+    if not hostname:
+        return url
+
+    return hostname.removeprefix("www.")
+
+
+def _build_html_link(url: str, text: str) -> str:
+    return f'<a href="{escape(url, quote=True)}">{escape(text)}</a>'
