@@ -105,6 +105,23 @@ Generated report:
 
 - `hn_comment_analysis.md`
 
+## Operational Readiness Benchmark
+
+File: `operational_readiness_benchmark.py`
+
+Purpose: measure whether the free deterministic reading-decision pipeline is operationally reliable across 100 live Hacker News stories with external URLs.
+
+Run:
+
+```bash
+python -m experiments.operational_readiness_benchmark
+```
+
+Generated outputs:
+
+- `operational_readiness_benchmark.csv`
+- `operational_readiness_report.md`
+
 ## Notes
 
 - Experiments may fetch live URLs and Hacker News data.
