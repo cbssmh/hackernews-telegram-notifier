@@ -32,24 +32,25 @@ def test_build_daily_message_contains_reading_decision_sections() -> None:
                 "It gives enough evidence for a fast reading decision without adding new claims."
             ),
             word_count=440,
+            published_date="2026-05-20",
         ),
     )
 
     assert "HN Daily Top 3 — 2026-05-21" in message
-    assert "📰 Extracted Article Title" in message
-    assert "📂 Engineering Blog" in message
-    assert "github.blog · ⏱ 2 min" in message
-    assert "⭐100 · 💬20" in message
-    assert "📖 Preview" in message
+    assert "1. Extracted Article Title" in message
+    assert "Published: 2026-05-20" in message
+    assert "github.blog · 2 min" in message
+    assert "100 points · 20 comments" in message
+    assert "Preview:" in message
     assert "This is the first meaningful paragraph" in message
-    assert "💬 HN Insight" in message
+    assert "HN Insight:" in message
     assert "useful engineering context" in message
     assert (
-        '🔗 원문: <a href="https://github.blog/engineering/example-post">github.blog</a>'
+        'Source: <a href="https://github.blog/engineering/example-post">github.blog</a>'
         in message
     )
     assert (
-        '💬 토론: <a href="https://news.ycombinator.com/item?id=123">HN Discussion</a>'
+        'Discussion: <a href="https://news.ycombinator.com/item?id=123">HN Discussion</a>'
         in message
     )
 
@@ -74,9 +75,10 @@ def test_build_daily_message_uses_access_blocked_preview_when_article_fetch_is_b
             ),
         )
 
-        assert f"📖 Preview\n{ACCESS_BLOCKED_PREVIEW_UNAVAILABLE}" in message
+        assert f"Preview:\n{ACCESS_BLOCKED_PREVIEW_UNAVAILABLE}" in message
         assert "Fallback preview" not in message
-        assert "⏱ 1 min" in message
+        assert "example.com · " not in message
+        assert "Published:" not in message
 
 
 def test_build_daily_message_uses_generic_preview_when_article_extraction_fails() -> None:
@@ -95,9 +97,10 @@ def test_build_daily_message_uses_generic_preview_when_article_extraction_fails(
         article_extractor=lambda url: ArticleExtraction(success=False, error="blocked"),
     )
 
-    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert f"Preview:\n{PREVIEW_UNAVAILABLE}" in message
     assert "Fallback preview" not in message
-    assert "⏱ 1 min" in message
+    assert "example.com · " not in message
+    assert "Published:" not in message
 
 
 def test_build_daily_message_uses_generic_preview_when_article_extractor_raises() -> None:
@@ -119,7 +122,7 @@ def test_build_daily_message_uses_generic_preview_when_article_extractor_raises(
         article_extractor=raising_extractor,
     )
 
-    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert f"Preview:\n{PREVIEW_UNAVAILABLE}" in message
     assert "Fallback preview" not in message
 
 
@@ -141,8 +144,8 @@ def test_build_daily_message_keeps_hn_insight_when_preview_fallback_is_used() ->
         article_extractor=lambda url: ArticleExtraction(success=False, error="blocked"),
     )
 
-    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
-    assert "💬 HN Insight" in message
+    assert f"Preview:\n{PREVIEW_UNAVAILABLE}" in message
+    assert "HN Insight:" in message
     assert "useful context" in message
 
 
@@ -162,7 +165,7 @@ def test_build_daily_message_does_not_use_old_rule_based_summary_as_preview_fall
         article_extractor=lambda url: ArticleExtraction(success=False, error="empty"),
     )
 
-    assert f"📖 Preview\n{PREVIEW_UNAVAILABLE}" in message
+    assert f"Preview:\n{PREVIEW_UNAVAILABLE}" in message
     assert "라는 주제를 다루며" not in message
 
 
@@ -185,7 +188,7 @@ def test_build_daily_message_omits_hn_insight_when_comments_are_missing() -> Non
         ),
     )
 
-    assert "💬 HN Insight" not in message
+    assert "HN Insight:" not in message
 
 
 def test_build_daily_message_without_stories() -> None:
@@ -210,7 +213,7 @@ def test_build_daily_message_removes_www_from_article_link_text() -> None:
         summary_provider=lambda story: "Fallback preview",
     )
 
-    assert '🔗 원문: <a href="https://www.example.com/post">example.com</a>' in message
+    assert 'Source: <a href="https://www.example.com/post">example.com</a>' in message
 
 
 def test_build_daily_message_uses_full_url_as_link_text_when_hostname_is_missing() -> None:
@@ -229,4 +232,43 @@ def test_build_daily_message_uses_full_url_as_link_text_when_hostname_is_missing
         summary_provider=lambda story: "Fallback preview",
     )
 
-    assert '🔗 원문: <a href="not-a-url">not-a-url</a>' in message
+    assert 'Source: <a href="not-a-url">not-a-url</a>' in message
+
+
+def test_build_daily_message_omits_published_when_missing() -> None:
+    story = HNStory(
+        id=123,
+        title="Example Story",
+        url="https://example.com/post",
+        score=100,
+        descendants=20,
+    )
+
+    message = build_daily_message(
+        [story],
+        target_date=date(2026, 5, 21),
+        article_extractor=lambda url: ArticleExtraction(
+            success=True,
+            text="A meaningful article paragraph that can be used as preview text.",
+            word_count=220,
+        ),
+    )
+
+    assert "Published:" not in message
+    assert "example.com · 1 min" in message
+
+
+def test_build_daily_message_numbers_multiple_stories() -> None:
+    stories = [
+        HNStory(id=123, title="First Story", url="https://example.com/one", score=100, descendants=20),
+        HNStory(id=456, title="Second Story", url="https://example.com/two", score=90, descendants=10),
+    ]
+
+    message = build_daily_message(
+        stories,
+        target_date=date(2026, 5, 21),
+        article_extractor=lambda url: ArticleExtraction(success=False, error="blocked"),
+    )
+
+    assert "1. First Story" in message
+    assert "2. Second Story" in message

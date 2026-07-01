@@ -15,6 +15,7 @@ class ArticleExtraction:
     title: str = ""
     text: str = ""
     word_count: int = 0
+    published_date: str = ""
     error: str = ""
 
 
@@ -57,6 +58,7 @@ def extract_article(url: str, timeout_seconds: int = 10) -> ArticleExtraction:
         title=_string_value(data.get("title")),
         text=text,
         word_count=_count_words(text),
+        published_date=_date_value(data.get("date")),
     )
 
 
@@ -69,3 +71,9 @@ def _string_value(value: Any) -> str:
 
 def _count_words(text: str) -> int:
     return len(re.findall(r"\b[\w'-]+\b", text))
+
+
+def _date_value(value: Any) -> str:
+    text = _string_value(value)
+    match = re.search(r"(?<!\d)(?:19|20)\d{2}-\d{1,2}-\d{1,2}(?=\D|$)", text)
+    return match.group(0) if match else ""

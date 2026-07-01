@@ -12,7 +12,6 @@ from src.reading_decision import (
     build_article_excerpt,
     build_hn_insight,
     calculate_reading_time_minutes,
-    classify_source_type,
 )
 from src.summarizer import build_rule_based_summary
 
@@ -42,10 +41,11 @@ def build_daily_message(
         lines.append("오늘 수집 가능한 Hacker News 인기글이 없습니다.")
         return "\n".join(lines)
 
-    for story in stories:
+    for rank, story in enumerate(stories, start=1):
         lines.extend(
             build_story_lines(
                 story,
+                rank=rank,
                 summary_provider=summary_provider,
                 article_extractor=article_extractor,
             )
@@ -56,6 +56,7 @@ def build_daily_message(
 
 def build_story_lines(
     story: HNStory,
+    rank: int = 1,
     summary_provider: SummaryProvider = build_rule_based_summary,
     article_extractor: ArticleExtractor = extract_article,
 ) -> list[str]:
@@ -68,25 +69,35 @@ def build_story_lines(
         if article.success
         else _build_preview_unavailable_message(article)
     )
-    reading_time = calculate_reading_time_minutes(article.word_count)
     hn_insight = build_hn_insight(story.top_comments)
 
     lines = [
-        f"📰 {escape(title)}",
-        "",
-        f"📂 {escape(classify_source_type(story.url))}",
-        f"{escape(domain)} · ⏱ {reading_time} min",
-        f"⭐{story.score} · 💬{story.descendants}",
-        "",
-        "📖 Preview",
-        escape(preview),
+        f"{rank}. {escape(title)}",
         "",
     ]
+
+    if article.success and article.published_date:
+        lines.append(f"Published: {escape(article.published_date)}")
+
+    metadata_line = escape(domain)
+    if article.success:
+        metadata_line = f"{metadata_line} · {calculate_reading_time_minutes(article.word_count)} min"
+
+    lines.extend(
+        [
+            metadata_line,
+            f"{story.score} points · {story.descendants} comments",
+            "",
+            "Preview:",
+            escape(preview),
+            "",
+        ]
+    )
 
     if hn_insight:
         lines.extend(
             [
-                "💬 HN Insight",
+                "HN Insight:",
                 escape(hn_insight),
                 "",
             ]
@@ -94,8 +105,8 @@ def build_story_lines(
 
     lines.extend(
         [
-            f"🔗 원문: {_build_html_link(article_url, _display_hostname(article_url))}",
-            f"💬 토론: {_build_html_link(story.discussion_url, 'HN Discussion')}",
+            f"Source: {_build_html_link(article_url, _display_hostname(article_url))}",
+            f"Discussion: {_build_html_link(story.discussion_url, 'HN Discussion')}",
             "",
             "---",
             "",
