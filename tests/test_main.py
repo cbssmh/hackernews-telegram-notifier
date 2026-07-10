@@ -1,6 +1,9 @@
 import src.main as main
+import src.message_builder as message_builder
+from src.article_extractor import ArticleExtraction
 from src.hn_client import HNStory
 from src.openai_summary_provider import DEFAULT_OPENAI_MODEL
+from src.reading_decision import ReadingDecision
 from src.summarizer import build_rule_based_summary
 
 
@@ -241,3 +244,73 @@ def test_main_passes_nvidia_reading_decision_provider_to_message_builder(monkeyp
     assert isinstance(captured["reading_decision_provider"], FakeNVIDIAReadingDecisionProvider)
     assert captured["summary_provider"] is build_rule_based_summary
     assert captured["sent_message"] == "message"
+
+
+def test_main_renders_nvidia_reading_decision_fields(monkeypatch) -> None:
+    captured = {}
+
+    class FakeHNClient:
+        def fetch_top_stories(self, **kwargs):
+            captured["fetch_top_stories_kwargs"] = kwargs
+            return [
+                HNStory(
+                    1,
+                    "Story",
+                    "https://example.com/post",
+                    100,
+                    20,
+                    top_comments=("Existing comment insight that should be replaced.",),
+                )
+            ]
+
+    class FakeTelegramClient:
+        def __init__(self, bot_token: str, chat_id: str) -> None:
+            return None
+
+        def send_message(self, message: str) -> None:
+            captured["sent_message"] = message
+
+    class FakeNVIDIAReadingDecisionProvider:
+        def __init__(self, api_key: str, model: str, timeout_seconds: int) -> None:
+            return None
+
+        def __call__(self, decision_input):
+            captured["provider_input"] = decision_input
+            return ReadingDecision(
+                preview="NVIDIA preview",
+                hn_insight="NVIDIA HN insight",
+                why_trending="NVIDIA why trending",
+            )
+
+    def fake_build_daily_message(stories, summary_provider, reading_decision_provider):
+        return message_builder.build_daily_message(
+            stories,
+            summary_provider=summary_provider,
+            article_extractor=lambda url: ArticleExtraction(
+                success=True,
+                text="Base article preview text that should be replaced.",
+                word_count=220,
+            ),
+            reading_decision_provider=reading_decision_provider,
+        )
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "telegram-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "chat-id")
+    monkeypatch.setenv("SUMMARY_PROVIDER", "nvidia")
+    monkeypatch.setenv("NVIDIA_API_KEY", "secret-key")
+    monkeypatch.setenv("NVIDIA_MODEL", "minimaxai/minimax-m3")
+    monkeypatch.setattr(main, "HNClient", FakeHNClient)
+    monkeypatch.setattr(main, "TelegramClient", FakeTelegramClient)
+    monkeypatch.setattr(main, "NVIDIAReadingDecisionProvider", FakeNVIDIAReadingDecisionProvider)
+    monkeypatch.setattr(main, "build_daily_message", fake_build_daily_message)
+
+    main.main()
+
+    assert captured["fetch_top_stories_kwargs"]["include_comments"] is True
+    assert captured["provider_input"].story.title == "Story"
+    assert captured["provider_input"].article.success is True
+    assert "Preview:\nNVIDIA preview" in captured["sent_message"]
+    assert "HN Insight:\nNVIDIA HN insight" in captured["sent_message"]
+    assert "Why Trending:\nNVIDIA why trending" in captured["sent_message"]
+    assert "Base article preview text that should be replaced." not in captured["sent_message"]
+    assert "Existing comment insight that should be replaced." not in captured["sent_message"]
