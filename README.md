@@ -69,3 +69,7 @@ Variables:
 - `NVIDIA_TIMEOUT_SECONDS=60`
 
 NVIDIA reading decisions use extracted article text, Hacker News metadata, and top HN comments to generate the Preview, HN Insight, and optional Why Trending sections. If NVIDIA is unavailable or returns incomplete fields, the notifier automatically falls back to the existing non-LLM Preview and HN Insight.
+
+## Model Evaluation
+
+See `docs/model-evaluation.md` for the provider design, model comparison, and MiniMax M3 selection rationale.
