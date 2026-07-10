@@ -130,7 +130,12 @@ def _build_system_prompt() -> str:
         "generated from comments and metadata even when article extraction failed. The why_trending "
         "field must explain in one sentence why this story appears to be drawing Hacker News attention, "
         "using the article, comments, score, and comment count; return an empty string if evidence is "
-        "insufficient."
+        "insufficient. For why_trending, do not repeat score, comment count, published date, reading "
+        "time, or source domain because those are already visible in the Telegram message. Mention them "
+        "only if absolutely necessary to explain the discussion. Focus on why developers found the story "
+        "interesting. Explain the technical discussion, controversy, novelty, or practical implication. "
+        "Keep why_trending within about 100 Korean characters. Avoid generic phrases like many people "
+        "were interested, high score, or many comments."
     )
 
 
