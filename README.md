@@ -53,3 +53,19 @@ Optional Actions variables:
 - `OPENAI_TIMEOUT_SECONDS` defaults to `20`
 
 OpenAI summaries use only Hacker News metadata and top HN comments. Article bodies are not scraped. If OpenAI fails, the notifier falls back to rule-based summaries for that story.
+
+## Optional NVIDIA Reading Decisions
+
+To enable NVIDIA Build/NIM reading decisions, add:
+
+Secret:
+
+- `NVIDIA_API_KEY`
+
+Variables:
+
+- `SUMMARY_PROVIDER=nvidia`
+- `NVIDIA_MODEL=minimaxai/minimax-m3`
+- `NVIDIA_TIMEOUT_SECONDS=60`
+
+NVIDIA reading decisions use extracted article text, Hacker News metadata, and top HN comments to generate the Preview, HN Insight, and optional Why Trending sections. If NVIDIA is unavailable or returns incomplete fields, the notifier automatically falls back to the existing non-LLM Preview and HN Insight.

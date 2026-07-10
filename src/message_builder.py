@@ -9,6 +9,9 @@ from urllib.parse import urlparse
 from src.article_extractor import ArticleExtraction, extract_article
 from src.hn_client import HNStory
 from src.reading_decision import (
+    ReadingDecision,
+    ReadingDecisionInput,
+    ReadingDecisionProvider,
     build_article_excerpt,
     build_hn_insight,
     calculate_reading_time_minutes,
@@ -29,6 +32,7 @@ def build_daily_message(
     target_date: date | None = None,
     summary_provider: SummaryProvider = build_rule_based_summary,
     article_extractor: ArticleExtractor = extract_article,
+    reading_decision_provider: ReadingDecisionProvider | None = None,
 ) -> str:
     message_date = target_date or date.today()
 
@@ -48,6 +52,7 @@ def build_daily_message(
                 rank=rank,
                 summary_provider=summary_provider,
                 article_extractor=article_extractor,
+                reading_decision_provider=reading_decision_provider,
             )
         )
 
@@ -59,17 +64,22 @@ def build_story_lines(
     rank: int = 1,
     summary_provider: SummaryProvider = build_rule_based_summary,
     article_extractor: ArticleExtractor = extract_article,
+    reading_decision_provider: ReadingDecisionProvider | None = None,
 ) -> list[str]:
     article = _extract_article(story.url, article_extractor)
     title = article.title if article.success and article.title else story.title
     article_url = story.url or story.discussion_url
     domain = story.domain or "news.ycombinator.com"
-    preview = (
+    base_preview = (
         build_article_excerpt(article.text, fallback=PREVIEW_UNAVAILABLE)
         if article.success
         else _build_preview_unavailable_message(article)
     )
-    hn_insight = build_hn_insight(story.top_comments)
+    base_hn_insight = build_hn_insight(story.top_comments)
+    decision = _build_reading_decision(story, article, reading_decision_provider)
+    preview = decision.preview if article.success and decision.preview else base_preview
+    hn_insight = decision.hn_insight or base_hn_insight
+    why_trending = decision.why_trending
 
     lines = [
         f"{rank}. {escape(title)}",
@@ -103,6 +113,15 @@ def build_story_lines(
             ]
         )
 
+    if why_trending:
+        lines.extend(
+            [
+                "Why Trending:",
+                escape(why_trending),
+                "",
+            ]
+        )
+
     lines.extend(
         [
             f"Source: {_build_html_link(article_url, _display_hostname(article_url))}",
@@ -114,6 +133,25 @@ def build_story_lines(
     )
 
     return lines
+
+
+def _build_reading_decision(
+    story: HNStory,
+    article: ArticleExtraction,
+    reading_decision_provider: ReadingDecisionProvider | None,
+) -> ReadingDecision:
+    if reading_decision_provider is None:
+        return ReadingDecision()
+
+    try:
+        return reading_decision_provider(
+            ReadingDecisionInput(
+                story=story,
+                article=article,
+            )
+        )
+    except Exception:
+        return ReadingDecision()
 
 
 def _extract_article(

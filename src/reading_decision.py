@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 import re
 from urllib.parse import urlparse
+
+from src.article_extractor import ArticleExtraction
+from src.hn_client import HNStory
 
 
 WORDS_PER_MINUTE = 220
@@ -18,6 +23,22 @@ NEWS_DOMAIN_HINTS = (
     "reuters",
     "washingtonpost",
 )
+
+
+@dataclass(frozen=True)
+class ReadingDecisionInput:
+    story: HNStory
+    article: ArticleExtraction
+
+
+@dataclass(frozen=True)
+class ReadingDecision:
+    preview: str = ""
+    hn_insight: str = ""
+    why_trending: str = ""
+
+
+ReadingDecisionProvider = Callable[[ReadingDecisionInput], ReadingDecision]
 
 
 def build_article_excerpt(text: str, fallback: str) -> str:
