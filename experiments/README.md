@@ -2,7 +2,7 @@
 
 This directory is an engineering notebook for validating ideas before they are promoted to production. Each PoC captures a narrow question, the command used to inspect it, and any generated reports for later comparison.
 
-This directory contains isolated Proofs of Concept used to evaluate reading-decision ideas before any production integration. These scripts are not the Telegram pipeline, do not send messages, and should not be treated as production entrypoints.
+These scripts are not the Telegram pipeline, do not send messages, and should not be treated as production entrypoints.
 
 ## Article Extraction PoC
 
